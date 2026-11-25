@@ -47,7 +47,7 @@ async function pump() {
   }
 }
 export async function executeScan(scan: Scan) {
-  const project = get<Project>('project', scan.projectId)!;
+  const project = scan.projectSnapshot || get<Project>('project', scan.projectId)!;
   const environment = project.environments.find((e) => e.id === scan.environmentId)!;
   const controller = new AbortController();
   controllers.set(scan.id, controller);

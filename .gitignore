@@ -7,3 +7,5 @@ test-results/
 .DS_Store
 .ai-workflow/reports/
 playwright-report/
+
+webprobe-results/

@@ -10,6 +10,7 @@ import type {
   Scan,
 } from '../../../packages/shared/src/index.js';
 export const dataDir = resolve(process.env.DATA_DIR || './data');
+(globalThis as Record<symbol, unknown>)[Symbol.for('webprobe.store.directory')] = dataDir;
 mkdirSync(resolve(dataDir, 'artifacts'), { recursive: true });
 const db = new DatabaseSync(resolve(dataDir, 'webprobe.sqlite'));
 db.exec(

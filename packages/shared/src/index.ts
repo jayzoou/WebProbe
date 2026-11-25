@@ -1,9 +1,25 @@
 import { z } from 'zod';
-export const environmentSchema = z.object({
-  id: z.string().min(1).max(64),
-  name: z.string().min(1).max(64),
-  url: z.string().url().max(2048),
-});
+export const environmentSchema = z
+  .object({
+    id: z.string().min(1).max(64),
+    name: z.string().min(1).max(64),
+    url: z.string().url().max(2048),
+    kind: z.enum(['development', 'preview', 'staging', 'production']).optional(),
+    protected: z.boolean().optional(),
+    archived: z.boolean().default(false),
+  })
+  .transform((e) => {
+    const kind =
+      e.kind ||
+      (/prod/i.test(e.id)
+        ? 'production'
+        : /stag/i.test(e.id)
+          ? 'staging'
+          : /dev|local/i.test(e.id)
+            ? 'development'
+            : 'preview');
+    return { ...e, kind, protected: e.protected ?? kind === 'production' };
+  });
 export const projectSchema = z.object({
   name: z.string().trim().min(1).max(80),
   description: z.string().max(500).default(''),
@@ -120,6 +136,8 @@ export type PageResult = {
 };
 export type Scan = ScanConfig & {
   id: string;
+  projectSnapshot?: Project;
+  releaseId?: string;
   status: 'queued' | 'running' | 'completed' | 'partial' | 'failed' | 'cancelled';
   createdAt: string;
   completedAt?: string;

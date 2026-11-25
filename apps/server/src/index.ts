@@ -22,6 +22,9 @@ import { diagnose, repairPrompt } from './reports.js';
 import { validateUrl } from './security.js';
 
 import { registerTestingRoutes, recoverTesting } from './testing/routes.js';
+import { registerReleaseRoutes } from './releases/routes.js';
+import { ReleaseError, recoverReleases, projectFor } from './releases/service.js';
+import { authorizeRunner } from './releases/runner-jobs.js';
 export const app = new Hono();
 const port = Number(process.env.PORT || 4174);
 const host = process.env.HOST || '127.0.0.1';
@@ -49,7 +52,11 @@ app.use('*', async (c, next) => {
     return c.json({ error: '不允许跨站请求' }, 403);
   if (c.req.path.startsWith('/api') || c.req.path.startsWith('/artifacts')) {
     const token = process.env.WEBPROBE_API_TOKEN;
-    if (token && c.req.header('authorization') !== `Bearer ${token}`)
+    if (c.req.path.startsWith('/api/runner-jobs/')) {
+      const id = c.req.path.match(/^\/api\/runner-jobs\/([a-f0-9-]{36})(?:\/|$)/)?.[1];
+      if (!id) throw new ReleaseError('Runner 任务无效', 401);
+      authorizeRunner(id, c.req.header('authorization'));
+    } else if (token && c.req.header('authorization') !== `Bearer ${token}`)
       return c.json({ error: '需要 API Token，请在设置中配置' }, 401);
     c.header('Cache-Control', 'no-store');
     c.header('X-Content-Type-Options', 'nosniff');
@@ -64,19 +71,23 @@ app.onError((error, c) =>
           ? error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('；')
           : error.message,
     },
-    error instanceof z.ZodError || error instanceof SyntaxError ? 400 : 500,
+    error instanceof ReleaseError
+      ? error.status
+      : error instanceof z.ZodError || error instanceof SyntaxError
+        ? 400
+        : 500,
   ),
 );
 app.get('/api/health', (c) =>
   c.json({
     status: 'ok',
-    version: '2.0.0',
+    version: '3.0.0',
     aiConfigured: !!process.env.AI_API_KEY,
     aiModel: process.env.AI_MODEL || 'deepseek-chat',
     privateNetworkAllowed: process.env.ALLOW_PRIVATE_NETWORK === 'true',
   }),
 );
-app.get('/api/projects', (c) => c.json(all<Project>('project')));
+app.get('/api/projects', (c) => c.json(all<Project>('project').map((p) => projectFor(p.id))));
 app.post('/api/projects', async (c) => {
   const input = projectSchema.parse(await c.req.json());
   for (const e of input.environments) validateUrl(e.url);
@@ -195,6 +206,7 @@ app.get('/api/scans/:id/export', async (c) => {
   });
 });
 registerTestingRoutes(app);
+registerReleaseRoutes(app);
 app.all('/api/*', (c) => c.json({ error: 'API 不存在' }, 404));
 app.get(
   '/artifacts/*',
@@ -217,6 +229,7 @@ if (existsSync('dist/index.html')) {
 }
 recoverInterrupted();
 recoverTesting();
+recoverReleases();
 if (process.env.NODE_ENV !== 'test')
   serve({ fetch: app.fetch, port, hostname: host }, () =>
     console.log(`WebProbe API http://${host}:${port}`),

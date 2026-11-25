@@ -1,0 +1,65 @@
+# Copy into .github/workflows/. Configure repository variables and secrets first.
+name: WebProbe Release Quality
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: URL of the already-running preview deployment
+        required: true
+        type: string
+      version:
+        description: Unique release version
+        required: true
+        type: string
+      existing_release_id:
+        description: Optional approved release ID; validate current readiness without rerunning
+        required: false
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: webprobe-quality-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    outputs:
+      release_id: ${{ steps.quality.outputs.release_id }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ vars.WEBPROBE_RUNNER_REPOSITORY }}
+          ref: ${{ vars.WEBPROBE_RUNNER_REF }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.22.2
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - name: Execute release quality gate
+        id: quality
+        env:
+          WEBPROBE_URL: ${{ secrets.WEBPROBE_URL }}
+          WEBPROBE_API_TOKEN: ${{ secrets.WEBPROBE_API_TOKEN }}
+          PROJECT_ID: ${{ vars.WEBPROBE_PROJECT_ID }}
+          ENVIRONMENT_ID: ${{ vars.WEBPROBE_ENVIRONMENT_ID }}
+          TARGET_URL: ${{ inputs.target_url }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          EXISTING_RELEASE_ID: ${{ inputs.existing_release_id }}
+        run: |
+          if [ -n "$EXISTING_RELEASE_ID" ]; then
+            npm run release -- status --release "$EXISTING_RELEASE_ID" --output webprobe-results
+          else
+            npm run release -- check --project "$PROJECT_ID" --environment "$ENVIRONMENT_ID" --version "$RELEASE_VERSION" --commit "$GITHUB_SHA" --target "$TARGET_URL" --mode local --output webprobe-results
+          fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: webprobe-release-quality
+          path: webprobe-results/
+          if-no-files-found: error
+          retention-days: 14
+# Put your real deployment job after this gate with `needs: quality`.
+# After actual deployment succeeds, register it using `npm run release -- deploy`.

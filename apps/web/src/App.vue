@@ -4,6 +4,8 @@ import { useRoute } from 'vue-router';
 import {
   Activity,
   FlaskConical,
+  GitBranch,
+  Layers,
   LayoutDashboard,
   FolderKanban,
   ScanLine,
@@ -30,6 +32,8 @@ const nav = [
   { path: '/projects', label: '项目管理', icon: FolderKanban },
   { path: '/scans', label: '检测任务', icon: ScanLine },
   { path: '/testing', label: 'AI 测试中心', icon: FlaskConical },
+  { path: '/releases', label: '发布中心', icon: GitBranch },
+  { path: '/environments', label: '环境与部署', icon: Layers },
   { path: '/issues', label: '问题中心', icon: Bug },
   { path: '/reports', label: '报告与回归', icon: Files },
 ];
@@ -46,7 +50,7 @@ onUnmounted(() => clearInterval(poll));
     <aside class="sidebar" :class="{ visible: mobileNav }">
       <RouterLink to="/" class="brand"
         ><span class="brand-mark"><Activity :size="23" /></span>WebProbe<span class="version"
-          >2.0</span
+          >3.0</span
         ></RouterLink
       >
       <div class="workspace">
@@ -64,7 +68,8 @@ onUnmounted(() => clearInterval(poll));
             active:
               route.path === item.path ||
               (item.path === '/scans' && route.path.startsWith('/scans/')) ||
-              (item.path === '/testing' && route.path.startsWith('/testing/')),
+              (item.path === '/testing' && route.path.startsWith('/testing/')) ||
+              (item.path === '/releases' && route.path.startsWith('/releases/')),
           }"
           @click="mobileNav = false"
           ><component :is="item.icon" :size="19" /><span>{{ item.label }}</span
@@ -125,7 +130,7 @@ onUnmounted(() => clearInterval(poll));
       </main>
       <footer>
         <span><Activity :size="13" />WebProbe · 为每一次发布提供质量依据</span
-        ><span>V2.0 · AI Testing Platform</span>
+        ><span>V3.0 · Release Quality Platform</span>
       </footer>
     </div>
     <ProjectModal v-if="state.showProject" @close="state.showProject = false" />

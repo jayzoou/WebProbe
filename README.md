@@ -1,8 +1,18 @@
-# WebProbe 2.0 · AI Testing Platform
+# WebProbe 3.0 · Release Quality Platform
 
 **AI 驱动的 Web 全生命周期质量治理平台 · Web Quality Scanner**
 
 围绕「发现问题 → 保留证据 → 协作修复 → 回归验证」构建的本地优先 Web 质量工作台。Vue 3 + TypeScript 前端、Hono API、Playwright 浏览器检测、Lighthouse 性能审计、axe 无障碍检测、SQLite 持久化。
+
+## V3.0 新增
+
+- 多环境分层、保护/归档、环境级质量策略与部署登记历史。
+- 带 Commit 的发布快照，固定用例版本、多次性能中位数及版本基线比较。
+- Quality Gate、问题/性能预算、完整性/覆盖/时效/来源检查、生产审批及环境晋级。
+- 独立 Local Runner、短期单任务凭证、附件分片回传、CI 退出码和 JSON/Markdown/JUnit。
+- 发布中心 `/releases` 与环境管理 `/environments`；真实部署仍由你的流水线执行。
+
+使用与接入说明见 [V3 发布质量平台](docs/v3-release-quality.md)。原有 V1/V2 功能保留。
 
 ## V2.0 新增
 

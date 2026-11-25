@@ -1,6 +1,6 @@
 {
   "name": "webprobe",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -13,14 +13,15 @@
     "typecheck": "vue-tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
     "format:check": "prettier --check .",
     "test": "tsx --test tests/*.test.ts",
-    "test:security": "tsx --test tests/security.test.ts",
-    "test:e2e": "tsx tests/e2e.ts && tsx tests/testing-e2e.ts",
+    "test:security": "tsx --test tests/security.test.ts tests/release-security.test.ts",
+    "test:e2e": "tsx tests/e2e.ts && tsx tests/testing-e2e.ts && tsx tests/releases-e2e.ts",
     "verify": "node .ai-workflow/verify.mjs --risk medium",
     "verify:high": "node .ai-workflow/verify.mjs --risk high",
     "workflow:doctor": "node scripts/workflow-doctor.mjs",
     "browsers": "playwright install chromium firefox webkit",
     "scan": "tsx --env-file-if-exists=.env apps/server/src/cli.ts",
-    "demo": "tsx fixtures/site.ts"
+    "demo": "tsx fixtures/site.ts",
+    "release": "tsx --env-file-if-exists=.env apps/server/src/release-cli.ts"
   },
   "dependencies": {
     "@axe-core/playwright": "^4.10.2",

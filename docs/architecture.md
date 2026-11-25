@@ -1,67 +1,43 @@
-# WebProbe V1.0 架构
+# WebProbe · 产品事实
 
-AI 协作与质量门禁见 [工作流说明](workflow.md) 和 [质量门禁](quality-gates.md)。本文件保留现有业务架构事实，工作流接入不改变运行时模块边界。
+WebProbe 3.0 是面向个人开发者和可信单团队的本地 Web 质量检测与修复回归工作台。用户提供网页 URL，平台执行真实浏览器检查，保留证据并辅助定位、修复和验证问题。
 
-## 边界
+## 用户链路
 
-V1.0 实现最新产品讨论中的 Web Quality Scanner，交付真实检测和修复闭环。通过 URL 可获得浏览器运行事实，但没有源码、业务断言、真实用户数据时不推断业务正确性，也不宣称自动发现所有 Bug。
+创建项目与环境 → 创建检测 → 查看问题和证据 → 请求规则或模型诊断 → 导出修复任务 → 修改实际源码 → 同配置回归检测。
 
-## 组件
+V1 已实现 Vue 3 管理界面、Hono API、Playwright 三浏览器检测、Lighthouse、axe、SQLite 存储、问题聚合和状态流转、报告导出以及 CLI。权威字段和校验在 `packages/shared/src/index.ts`，接口说明见 `docs/api.md`。
 
-```text
-Vue 3 / Router / reactive state
-           │ HTTP + SSE
-Hono API ──┼── SQLite records（Project / Scan / Issue）
-           ├── 修复报告 / Markdown / ZIP
-           ├── 兼容模型 API → 校验后的 Diagnosis
-           └── 串行 Scan Queue
-                 ├── Playwright → Runtime / Network / DOM / axe
-                 ├── Lighthouse → Chromium / 实验室指标 / 原始报告
-                 └── DNS 校验出口代理 → 被测网站
-```
+## 事实边界
 
-文件结构：`apps/web` 为管理界面，`apps/server` 为 API 与检测执行，`packages/shared` 为 Schema 和类型，`fixtures` 为可复现缺陷页面，`tests` 为核心规则及完整业务验证。
+- 规则发现、模型推断和业务事实分别展示；没有源码不推测文件行号。
+- 质量扫描不主动操作业务；V2 测试按显式授权执行受限步骤，业务正确性由用户断言定义。
+- 无模型凭证时明确生成规则建议，不假装调用模型。
+- 缺少检测、性能数据或覆盖范围时不能默认质量通过，也不能自动确认旧问题修复。
+- 当前面向本地/可信团队，无多租户、RUM、调度、源码自动修改或公网任意 URL 扫描沙箱。
 
-## 存储选择
+## 验收重点
 
-V1.0 使用 Node 原生 SQLite，减少本地启动所需的外部服务；使用 WAL 保证持久化、事务保证问题聚合一致性。关系对象由共享类型定义，序列化到 `(kind,id,body)` 表。此设计适合单进程、有限历史量的本地实例。面向大规模协作部署时，应将存储层迁移为 PostgreSQL 规范化表，并将任务队列迁移为 BullMQ/Redis、证据文件迁移至对象存储。
+保留正常、加载、空、失败和取消状态；用户能够理解问题证据、覆盖范围和诊断来源。扫描、导出及回归的实际行为以核心测试、安全测试和受控页面 E2E 验证。性能数据为实验室测量，不能直接代表真实用户体验或所有网站的表现。
 
-## Finding 与 Issue
+## V2 测试链路
 
-Finding 是一次扫描中的事实；Issue 是跨扫描聚合的长期问题。指纹使用规则、完整页面 URL（不含 hash）、浏览器、设备及稳定证据标识生成；项目和环境独立分组。查询参数保留，避免误将不同业务页面合并。一次扫描内相同指纹仅增加一次出现计数。
+自然语言/录制/探索 → 审查声明式用例与断言 → 版本化保存 → 设备矩阵执行 → 截图/Trace/失败步骤 → 重放确认 → 修复回归。视觉检查点首次需要人工批准基线。详细事实与限制见 [V2 测试平台](v2-testing.md)。
 
-问题人工流转为 `open → in_progress → pending_verification`，或 `ignored`。扫描时对应页面/浏览器/设备成功完成、对应来源确实执行、旧指纹未再出现，才将问题置为 `resolved`；复发重新打开。失败的浏览器安装、取消的任务或 axe/Lighthouse 失败都不会据此自动解决旧问题。
+用例执行不接受任意 JS；规则草稿不能冒充模型结果。探索采用有限的链接/单动作分支，不声称无业务预期也能发现所有功能缺陷。受策略阻拦不能变成已确认业务缺陷。
 
-Issue 的出现次数是被发现的检测次数，不是用户数量、错误总次数或 RUM 事件量。历史 Scan 保存完整 Findings 快照，不因人工操作改变。UI 不允许手工直接标记已修复。
+## V3 发布链路
 
-## 基线与准入
+项目与分层环境 → 环境质量策略 → 固定 Commit/目标/用例的发布 → 平台或受控 Runner 执行 → 逐项 Quality Gate → 与固定基线比较 → 保护环境审批 → 外部实际部署 → 登记部署结果。跨环境晋级重新验证，不复用预发布证据冒充生产检查。
 
-基线选择相同项目、环境、浏览器列表、设备列表、路径、页数与 Lighthouse 开关下最新的完整检测。只对两次都有成功覆盖的来源计算新增或消失；新增发现但旧检测未覆盖的页面不被错误算作回归。
+历史绿灯与当前可部署资格分别表示；status 和登记接口检查当前策略与证据时效。Runner 是明确授权后信任的调用方声明，不是防篡改证明。平台不执行用户部署命令、不建立远端 required checks。详细事实见 [V3 发布质量](v3-release-quality.md)。
 
-指标按 URL、浏览器、设备逐项比较。准入必须通过完整性、性能依据、每条 Lighthouse 性能/LCP/CLS 阈值和 P0/P1 数量限制。只执行 Firefox 或关闭性能审计仍可用于排错，但没有性能准入依据。
+## V3 发布控制层
 
-## 执行与安全
+`packages/shared/src/releases.ts` 定义策略、版本、证据、评估、Runner 和部署契约。`releases/evaluator.ts` 独立计算中位数、覆盖、预算、时效和比较；service 固定版本快照并管理审批/基线/部署；orchestrator 复用扫描与测试队列；Runner 使用独立 Node 进程及临时 SQLite 执行同一引擎；routes/reports/CLI 提供 CI 与审计输出。
 
-串行队列限制 CPU/内存竞争，每个浏览器上下文独立。导航 30 秒、Lighthouse 120 秒、全任务 15 分钟。取消会关闭活动浏览器；Lighthouse 有独立进程清理。进度通过 SSE 推送，普通列表每 4 秒刷新（浏览器页面可见时）。服务重启后将运行中或排队任务标记为失败，避免永久悬挂。
+V1 Scan/V2 TestRun 新增可选项目快照，使任务不受后续 URL/环境编辑影响。现有对象兼容读取，环境类型/保护在读取时正规化，不作破坏性迁移。新增 records 种类 releasePolicy/release/gateEvaluation/releaseEvent/runnerJob/runnerUpload/deployment；证据沿用 artifacts，分片暂存 runner-staging。
 
-macOS 的 Firefox 子进程使用 `data/runtime/firefox-home` 作为独立的应用数据根目录，避免访问用户日常 Firefox 的系统保护目录。检测配置仍由 Playwright 为每次启动创建，不复用用户会话。此处理依据 [Playwright 上游问题](https://github.com/microsoft/playwright/issues/42768) 并经过本机验证。
+单任务凭证只存 SHA-256，常量时间比较，绑定发布尝试、范围与过期时间；普通 API Token 不代替任务凭证。上传按配额、类型、路径、分片长度与摘要检查；单任务提交消费凭证，禁止重放。外部证据不写入平台扫描/Issue，策略默认不信任 Runner。平台数据库初始化后禁止在相同进程运行 Local Runner，防止模块缓存造成数据目录混用。
 
-所有浏览器 HTTP/HTTPS 流量经过本地出口代理，在建立连接时解析 DNS、拒绝非公网 IP 并使用已验证 IP 建立连接，覆盖重定向和子资源。云元数据地址默认禁止；内网目标需管理员显式启用。代理关闭时销毁所有隧道。此措施是应用层防护，不替代公网部署所需的独立网络沙箱。
-
-API 绑定本地地址，验证 Host/Origin，非本地绑定需 Token。前端仅在当前 sessionStorage 保存 Token。截图和原始报告经过同一 API Token 检查，原始 HTML 通过 CSP sandbox 隔离。模型输出和证据使用 Vue 文本渲染，避免任意 HTML。报告提醒外部 Agent 将网页内容当作不可信证据。
-
-## AI
-
-用户主动触发诊断，发送选中问题的证据给自定义兼容模型。Zod 校验摘要、原因假设、步骤、验证和有限置信度字段；不执行模型返回的指令。没有密钥时返回 `provider: rules` 并明确标注；请求失败时不会静默伪装为 AI 成功。没有源码就不声称定位文件行号。
-
-## 后续演进
-
-持续巡检调度与告警、版本化业务断言、登录态管理、RUM SDK、Source Map、MCP 服务、多用户访问控制、独立 Worker、数据保留策略和多次性能统计均为后续方向。
-
-## V2 测试执行架构
-
-新增 `apps/server/src/testing`：browser 复用 URL/DNS 代理并限制当前环境导航/请求；generation 基于 DOM 清单生成严格步骤并保存来源；recorder 用固定的应用脚本捕获主框架操作；runner 按用例快照映射到 Playwright；visual 用 pixelmatch/pngjs 比较 PNG；routes 管理用例、执行、探索、录制和审批。Vue 的 Testing、TestCaseEditor、TestRunDetail 展示同一共享契约。
-
-不在服务端执行导入的脚本；`.spec.ts` 仅为导出成果。测试与 V1 扫描采用独立串行队列。功能 Issue 具有用例 ID/版本/执行 ID，V1 扫描不覆盖该来源；同版本测试全通过才关闭对应功能问题。视觉基线和历史执行只追加，审批不会改写旧执行。
-
-固定浏览器脚本保存在 dom-scripts.ts，不插入网页/模型文本作为代码；这是为了避免 Node 转译辅助函数意外进入浏览器 realm。Trace 和图像证据沿用 artifacts 身份验证。当前环境写请求通过显式配置扩大，V1 默认只读保持不变；执行受阻与确定性失败分开。详见 [V2 使用说明](v2-testing.md)。
+发布策略/用例/基线与评估是历史事实；当前 readiness 每次重新检查环境、策略、时效与审批。部署登记只记录调用方已执行的部署，不能证明实际产物对应 Commit。见 [V3 设计与使用](v3-release-quality.md)。

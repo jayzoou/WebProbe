@@ -89,7 +89,7 @@ async function save() {
           </button>
         </div>
         <details class="gate-settings">
-          <summary>发布质量标准</summary>
+          <summary>基础扫描标准（发布准入请在发布中心配置）</summary>
           <div class="form-grid">
             <label
               >最低性能评分<input

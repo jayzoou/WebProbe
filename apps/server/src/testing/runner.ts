@@ -88,15 +88,24 @@ export function playwrightSource(test: TestCase) {
 const queue: string[] = [];
 let working = false;
 const controls = new Map<string, AbortController>();
-export function queueRun(config: TestRunConfig) {
+export function queueRun(
+  config: TestRunConfig,
+  snapshot?: {
+    project: import('../../../../packages/shared/src/index.js').Project;
+    cases: TestCase[];
+    releaseId: string;
+  },
+) {
   if (all<TestRun>('testRun').filter((r) => ['queued', 'running'].includes(r.status)).length >= 20)
     throw new Error('测试队列已满');
-  environment(config.projectId, config.environmentId);
-  const cases = [...new Set(config.caseIds)].map((id) => get<TestCase>('testCase', id));
+  if (!snapshot) environment(config.projectId, config.environmentId);
+  const cases =
+    snapshot?.cases || [...new Set(config.caseIds)].map((id) => get<TestCase>('testCase', id));
   if (cases.some((c) => !c || c.archived || c.projectId !== config.projectId))
     throw new Error('用例不存在、已归档或不属于当前项目');
   const run: TestRun = {
     ...config,
+    ...(snapshot ? { projectSnapshot: snapshot.project, releaseId: snapshot.releaseId } : {}),
     browsers: [...new Set(config.browsers)],
     devices: [...new Set(config.devices)],
     id: uid(),
@@ -149,7 +158,10 @@ export async function executeCase(
       errors: [],
       duration: 0,
     };
-  const base = environment(run.projectId, run.environmentId).url;
+  const base = (
+    run.projectSnapshot?.environments.find((e) => e.id === run.environmentId) ||
+    environment(run.projectId, run.environmentId)
+  ).url;
   await mkdir(resolve(dataDir, 'artifacts', run.id), { recursive: true });
   let session: Awaited<ReturnType<typeof browserSession>> | undefined;
   let tracing = false;
@@ -363,7 +375,10 @@ export function updateTestIssue(run: TestRun, result: CaseResult, confirmed = fa
     severity: 'P1',
     url: scopedUrl(
       result.testCase.steps[0].action === 'navigate' ? result.testCase.steps[0].path : '/',
-      environment(run.projectId, run.environmentId).url,
+      (
+        run.projectSnapshot?.environments.find((e) => e.id === run.environmentId) ||
+        environment(run.projectId, run.environmentId)
+      ).url,
     ),
     browser: result.browser,
     device: result.device,

@@ -1,0 +1,26 @@
+# Include this job from your application pipeline after the preview URL is ready.
+# Variables: WEBPROBE_RUNNER_REPOSITORY (trusted git URL), WEBPROBE_RUNNER_REF,
+# WEBPROBE_URL, WEBPROBE_API_TOKEN (masked), WEBPROBE_PROJECT_ID,
+# WEBPROBE_ENVIRONMENT_ID, PREVIEW_URL. Use a locked trusted Runner ref.
+webprobe_quality:
+  stage: test
+  image: node:22.22.2-bookworm
+  timeout: 25m
+  script:
+    - git init webprobe-runner
+    - cd webprobe-runner
+    - git remote add origin "$WEBPROBE_RUNNER_REPOSITORY"
+    - git fetch --depth 1 origin "$WEBPROBE_RUNNER_REF"
+    - git checkout --detach FETCH_HEAD
+    - npm ci
+    - npx playwright install --with-deps chromium firefox webkit
+    - npm run release -- check --project "$WEBPROBE_PROJECT_ID" --environment "$WEBPROBE_ENVIRONMENT_ID" --version "$CI_COMMIT_SHA" --commit "$CI_COMMIT_SHA" --target "$PREVIEW_URL" --mode local --output ../webprobe-results
+  artifacts:
+    when: always
+    expire_in: 14 days
+    paths:
+      - webprobe-results/
+    reports:
+      junit: webprobe-results/junit.xml
+# Actual deploy jobs should use `needs: [webprobe_quality]` and no allow_failure.
+# Register only after the real deployment command has succeeded.

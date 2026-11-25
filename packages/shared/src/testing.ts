@@ -155,6 +155,8 @@ export type CaseResult = {
   issueId?: string;
 };
 export type TestRun = TestRunConfig & {
+  projectSnapshot?: import('./index.js').Project;
+  releaseId?: string;
   id: string;
   status: 'queued' | 'running' | 'passed' | 'failed' | 'cancelled' | 'needs_baseline';
   cases: TestCase[];
