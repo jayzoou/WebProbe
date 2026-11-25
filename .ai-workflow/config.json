@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "project": "webprobe",
+  "preset": "vue",
+  "packageManager": "npm",
+  "gates": [
+    {
+      "id": "format",
+      "command": ["npm", "run", "format:check"],
+      "requiredFor": ["low", "medium", "high"],
+      "timeoutMs": 120000
+    },
+    {
+      "id": "typecheck",
+      "command": ["npm", "run", "typecheck"],
+      "requiredFor": ["low", "medium", "high"],
+      "timeoutMs": 120000
+    },
+    {
+      "id": "core",
+      "command": ["npm", "run", "test"],
+      "requiredFor": ["medium", "high"],
+      "timeoutMs": 120000
+    },
+    {
+      "id": "build",
+      "command": ["npm", "run", "build"],
+      "requiredFor": ["low", "medium", "high"],
+      "timeoutMs": 120000
+    },
+    {
+      "id": "e2e",
+      "command": ["npm", "run", "test:e2e"],
+      "requiredFor": ["medium", "high"],
+      "timeoutMs": 900000
+    },
+    {
+      "id": "security",
+      "command": ["npm", "run", "test:security"],
+      "requiredFor": ["high"],
+      "timeoutMs": 120000
+    }
+  ]
+}

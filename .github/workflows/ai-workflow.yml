@@ -1,0 +1,42 @@
+# 先配置命令并提交对应锁文件；缺少门禁将阻止合并。
+name: AI Workflow
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ai-workflow-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NODE_ENV: test
+      HOST: 127.0.0.1
+      AI_API_KEY: ''
+      WEBPROBE_API_TOKEN: ''
+      WEBPROBE_TEST_BROWSERS: chromium,firefox,webkit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.2
+          cache: npm
+      - run: npm ci
+      # 使用 playwright 库和自有 E2E，包含三种浏览器与真实 Lighthouse。
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run workflow:doctor -- --risk high
+      - run: npm run verify:high
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: workflow-evidence
+          path: |
+            .ai-workflow/reports/
+            test-results/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
